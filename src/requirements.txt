@@ -1,0 +1,6 @@
+pypdf
+influxdb
+tabulate
+pyyaml
+keyring
+requests

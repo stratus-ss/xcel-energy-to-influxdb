@@ -1,0 +1,26 @@
+influxdb:
+  host: localhost
+  port: 8086
+  bills_username: xcel
+  bills_password: ""        # use keyring for better security
+  bills_db: xcel_bill
+  readonly_username: throw-away
+  readonly_password: ""              # use keyring for better security
+  readonly_database: solar
+  readonly_measurement: solar_monthly
+
+enphase:
+  client_id: ""             # use keyring for better security
+  client_secret: ""         # use keyring for better security
+  bearer_token: ""          # use keyring for better security
+  system_id: ""
+  envoy_host: envoy.local
+  use_cloud: true
+
+solar:
+  source: auto              # auto | influx | enphase | bills_only | none
+  rate_escalation: 3.0
+  panel_lifespan_years: 25
+
+bills:
+  directory: ./bills
