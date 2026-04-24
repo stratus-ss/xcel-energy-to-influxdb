@@ -14,6 +14,7 @@ import os
 
 import keyring
 import yaml
+from influxdb import InfluxDBClient
 from pathlib import Path
 
 
@@ -24,6 +25,7 @@ SECRET_KEYS = [
     "enphase_client_id",
     "enphase_client_secret",
     "enphase_bearer_token",
+    "ha_influxdb_password",
 ]
 
 # Map secret key → (yaml_path segments, env var name)
@@ -33,6 +35,7 @@ _SECRET_DEFS = {
     "enphase_client_id": (["enphase", "client_id"], "XCEL_ENPHASE_CLIENT_ID"),
     "enphase_client_secret": (["enphase", "client_secret"], "XCEL_ENPHASE_CLIENT_SECRET"),
     "enphase_bearer_token": (["enphase", "bearer_token"], "XCEL_ENPHASE_BEARER_TOKEN"),
+    "ha_influxdb_password": (["ha_influxdb", "password"], "XCEL_HA_INFLUXDB_PASSWORD"),
 }
 
 
@@ -147,7 +150,6 @@ class AppConfig:
 
     def influx_client(self, db_name: str):
         """Create InfluxDBClient for specified database (bills credentials)."""
-        from influxdb import InfluxDBClient
         return InfluxDBClient(
             self.influx_host, self.influx_port,
             self.bills_username, self.bills_password,
@@ -156,7 +158,6 @@ class AppConfig:
 
     def influx_client_solar(self):
         """Create InfluxDBClient for solar database (readonly credentials)."""
-        from influxdb import InfluxDBClient
         return InfluxDBClient(
             self.influx_host, self.influx_port,
             self.readonly_username, self.readonly_password,
@@ -213,6 +214,88 @@ class AppConfig:
     @property
     def bills_directory(self) -> str:
         return self._yaml.get("bills", {}).get("directory", "./bills")
+
+    # -------------------------------------------------------------------------
+    # Home Assistant InfluxDB (interval sensor data for TOU analysis)
+    # -------------------------------------------------------------------------
+
+    @property
+    def ha_influx_host(self) -> str:
+        return self._yaml.get("ha_influxdb", {}).get("host", self.influx_host)
+
+    @property
+    def ha_influx_port(self) -> int:
+        return int(self._yaml.get("ha_influxdb", {}).get("port", self.influx_port))
+
+    @property
+    def ha_influx_database(self) -> str:
+        return self._yaml.get("ha_influxdb", {}).get("database", "homeassistant")
+
+    @property
+    def ha_influx_username(self) -> str:
+        return self._yaml.get("ha_influxdb", {}).get("username", "")
+
+    @property
+    def ha_influx_password(self) -> str:
+        return self._get_secret("ha_influxdb_password")
+
+    @property
+    def ha_consumption_entity(self) -> str:
+        return self._yaml.get("ha_influxdb", {}).get("consumption_entity", "")
+
+    @property
+    def ha_consumption_field(self) -> str:
+        return self._yaml.get("ha_influxdb", {}).get("consumption_field", "value")
+
+    def influx_client_ha(self):
+        """Create InfluxDBClient for Home Assistant database."""
+        return InfluxDBClient(
+            self.ha_influx_host, self.ha_influx_port,
+            self.ha_influx_username, self.ha_influx_password,
+            self.ha_influx_database,
+        )
+
+    # -------------------------------------------------------------------------
+    # TOU Rates (South Dakota Residential Time-of-Day)
+    # -------------------------------------------------------------------------
+
+    @property
+    def tou_config(self) -> dict:
+        return self._yaml.get("tou_rates", {})
+
+    # -------------------------------------------------------------------------
+    # Sync (energy interval pipeline)
+    # -------------------------------------------------------------------------
+
+    @property
+    def sync_target_measurement(self) -> str:
+        return self._yaml.get("sync", {}).get("target_measurement", "energy_interval")
+
+    @property
+    def sync_container_host(self) -> str:
+        return self._yaml.get("sync", {}).get("container_host", "containers")
+
+    @property
+    def sync_backup_dir(self) -> str:
+        return self._yaml.get("sync", {}).get("backup_dir", "/mnt")
+
+    @property
+    def sync_entities(self) -> list[str]:
+        return self._yaml.get("sync", {}).get("entities", [])
+
+    @property
+    def sync_batch_size(self) -> int:
+        return int(self._yaml.get("sync", {}).get("batch_size", 5000))
+
+    @property
+    def sync_entity_pairs(self) -> dict[str, dict[str, str]]:
+        """
+        Get entity pairs for net energy computation.
+        
+        Returns:
+            Dict mapping target entity to {consumption: str, production: str}
+        """
+        return self._yaml.get("sync", {}).get("entity_pairs", {})
 
 
 def setup_keyring_interactive() -> None:

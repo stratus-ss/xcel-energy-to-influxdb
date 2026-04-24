@@ -24,3 +24,51 @@ solar:
 
 bills:
   directory: ./bills
+
+# Home Assistant InfluxDB -- stores sensor interval data (energy, power, etc.)
+# Used by tou_comparison.py to fetch interval consumption for TOU billing analysis
+ha_influxdb:
+  host: localhost              # HA InfluxDB host (default: same as InfluxDB host)
+  port: 8086                  # HA InfluxDB port
+  database: homeassistant      # HA InfluxDB database name
+  username: ""                # credentials (use keyring for better security)
+  password: ""                # credentials (use keyring for better security)
+  consumption_entity: ""       # entity_id for grid consumption (run --discover to find)
+  consumption_field: value     # field name in InfluxDB measurement (usually "value")
+
+# Xcel Energy South Dakota TOU rates (effective July 1, 2023 -- PUC Docket EL22-017)
+# Update these when the PUC approves new rate schedules
+tou_rates:
+  peak_start_hour: 9          # on-peak starts at 9 AM
+  peak_end_hour: 21           # on-peak ends at 9 PM (21:00)
+  peak_days: [0, 1, 2, 3, 4]  # Mon=0 through Fri=4
+  # Federal holidays -- off-peak all day (MM-DD format)
+  holidays:
+    - "01-01"                 # New Year's Day
+    - "07-04"                 # Independence Day
+    - "12-25"                 # Christmas Day
+  # Note: Good Friday, Memorial Day, Labor Day, Thanksgiving vary by year.
+  # Add approximate fixed dates or update annually based on actual calendar.
+  summer_months: [6, 7, 8, 9]  # Jun through Sep (summer on-peak rate applies)
+  summer_on_peak: 0.21806       # $/kWh -- summer on-peak (Jun-Sep)
+  winter_on_peak: 0.17590       # $/kWh -- winter on-peak (Oct-May)
+  off_peak: 0.04610             # $/kWh -- all other hours, all seasons
+  flat_summer: 0.11153          # $/kWh -- standard residential summer
+  flat_winter_first_1000: 0.09585  # $/kWh -- standard residential winter first 1000 kWh
+  flat_winter_excess: 0.09327  # $/kWh -- standard residential winter over 1000 kWh
+  fuel_surcharge: 0.02634      # $/kWh -- fuel adjustment applied to both plans (varies monthly)
+  tou_customer_charge: 10.30   # $/month -- TOU overhead service charge
+  flat_customer_charge: 8.30   # $/month -- standard overhead service charge
+
+# Energy interval sync -- pulls data from HA InfluxDB and/or backups into solar DB
+sync:
+  target_measurement: energy_interval    # measurement name in solar DB
+  container_host: containers             # SSH host for backup extraction
+  backup_dir: /mnt                       # directory on container_host with .tar backups
+  entities:                              # entity_ids to sync/extract
+    - envoy_XXXXXXXXXX_lifetime_net_energy_consumption
+  entity_pairs:                          # for net energy computation from consumption/production pairs
+    envoy_XXXXXXXXXX_lifetime_net_energy_consumption:
+      consumption: envoy_XXXXXXXXXX_lifetime_energy_consumption
+      production: envoy_XXXXXXXXXX_lifetime_energy_production
+  batch_size: 5000                       # points per write batch
