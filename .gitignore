@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+xcel_venv/
+
+# Linters / IDE
+.ruff_cache/
+.cursor/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ops / recovery scripts (environment-specific)
+src/extract_solar_history.py
+src/import_solar_history.py
+src/chunked_import.sh
+src/full_solar_restore.sh
+src/full_solar_restore_v2.sh
+src/import_3_backups.sh
+src/import_to_production.sh
+
+# PII - bills and energy data contain personal info
+bills/
+src/bills
+*.csv
+
+# Local config overrides
+src/config.yaml
+config.yaml
